@@ -32,6 +32,8 @@ assertTrue(source.contains("applicationShouldTerminateAfterLastWindowClosed"), "
 assertTrue(source.contains("FileHandle.nullDevice"), "Subprocesses attach nullDevice to stdin so prompts never hang")
 assertTrue(source.contains("UpdateBatchResult"), "Batch updater aggregates results without masking failures")
 assertTrue(source.contains("SPICETIFY_INSTALL"), "Supports SPICETIFY_INSTALL env var for portability")
+assertTrue(source.contains("Privacy_AppBundles"), "Includes macOS App Management System Settings deep link")
+assertTrue(source.contains("restoreBackupApply"), "Includes one-click Restore, Backup & Apply recovery fix")
 
 // 2. Verify INI parsing behavior (mirrors SpicetifyHelpers.parseConfigINI)
 let sampleINI = """

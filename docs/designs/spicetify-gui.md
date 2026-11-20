@@ -173,3 +173,9 @@ Key `SpicetifyManager` (`@MainActor`) method signatures:
    * Repository includes `README.md`, `LICENSE` (MIT), `.gitignore`, `src/SpicetifyGUI.swift`, `scripts/make_icon.swift`, `scripts/build.sh` (auto-detects `arm64`/`x86_64`, supports `--out <path>`), and `scripts/test_logic.swift`.
    * Works cleanly on both Apple Silicon and Intel Macs running macOS 14+.
 
+### 2.7 v1.3 Additions (macOS App Management & Existing-Backup Recovery)
+* **App Management Permission Detection:** `SpicetifyHelpers.diagnose(result:)` matches `"app management"`, `"cannot write to spotify"`, or `"operation not permitted"` and surfaces a banner with a one-click **Open App Management Settings** button (`x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles`).
+* **Existing-Backup Recovery Detection:** Matches `"restore first then backup"` or `"spicetify restore backup"` (even if Spicetify exits with status `0` after printing a warning) and surfaces a one-click **Restore, Backup & Apply** button (`spicetify restore backup apply`).
+* **Quick Actions:** Adds a dedicated **Restore, Backup & Apply** action card alongside **Apply** and **Backup & Apply**.
+
+

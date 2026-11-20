@@ -63,7 +63,9 @@ struct CommandResult: Sendable {
 
 enum SuggestedFix: Equatable, Sendable {
     case backupApply
+    case restoreBackupApply
     case upgradeCLI
+    case openAppManagement
 }
 
 struct DiagnosticHint: Equatable, Sendable {
@@ -167,6 +169,17 @@ enum SpicetifyHelpers {
     }
 
     static func diagnose(result: CommandResult) -> DiagnosticHint? {
+        let lower = result.output.lowercased()
+
+        // Check warning-level existing-backup message even if Spicetify exits 0.
+        if lower.contains("restore first then backup") || lower.contains("spicetify restore backup") {
+            return DiagnosticHint(
+                title: "A backup already exists",
+                guidance: "Run Restore, Backup & Apply for a clean re-backup, or use Apply for normal changes.",
+                suggestedFix: .restoreBackupApply
+            )
+        }
+
         guard result.exitCode != 0 else { return nil }
         if result.timedOut {
             return DiagnosticHint(
@@ -175,8 +188,14 @@ enum SpicetifyHelpers {
                 suggestedFix: nil
             )
         }
-        let lower = result.output.lowercased()
-        if lower.contains("backup") || lower.contains("version") && lower.contains("mismatch") || lower.contains("spotify has been updated") || lower.contains("cannot apply") {
+        if lower.contains("app management") || lower.contains("cannot write to spotify") || lower.contains("operation not permitted") {
+            return DiagnosticHint(
+                title: "macOS App Management permission required",
+                guidance: "Allow Spicetify GUI in System Settings → Privacy & Security → App Management, then quit and reopen this app.",
+                suggestedFix: .openAppManagement
+            )
+        }
+        if lower.contains("backup") || (lower.contains("version") && lower.contains("mismatch")) || lower.contains("spotify has been updated") || lower.contains("cannot apply") {
             return DiagnosticHint(
                 title: "Spotify may have updated",
                 guidance: "Run Backup & Apply to re-sync Spicetify with your current Spotify version.",
@@ -584,17 +603,18 @@ final class SpicetifyManager: ObservableObject {
         }
 
         isRunning = false
+        let detectedHint = SpicetifyHelpers.diagnose(result: result)
         if result.exitCode == 0 {
-            statusText = "\(label) succeeded"
+            statusText = detectedHint != nil ? "\(label) completed with a warning" : "\(label) succeeded"
             statusIsError = false
-            diagnosticHint = nil
-            if clearsPending {
+            diagnosticHint = detectedHint
+            if clearsPending && detectedHint == nil {
                 hasPendingChanges = false
             }
         } else {
             statusText = result.timedOut ? "\(label) timed out" : "\(label) failed (exit \(result.exitCode))"
             statusIsError = true
-            diagnosticHint = SpicetifyHelpers.diagnose(result: result)
+            diagnosticHint = detectedHint
         }
 
         if reloadAfter {
@@ -797,6 +817,12 @@ final class SpicetifyManager: ObservableObject {
         NSWorkspace.shared.open(URL(fileURLWithPath: dir))
     }
 
+    func openAppManagementSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     func copyLog() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(logOutput, forType: .string)
@@ -881,18 +907,32 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if hint.suggestedFix == .backupApply {
+                        switch hint.suggestedFix {
+                        case .openAppManagement:
+                            Button("Open App Management Settings") {
+                                manager.openAppManagementSettings()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        case .restoreBackupApply:
+                            Button("Restore, Backup & Apply") {
+                                Task { await manager.runCommand(["restore", "backup", "apply"], label: "Restore, Backup & Apply", clearsPending: true) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(manager.isRunning)
+                        case .backupApply:
                             Button("Backup & Apply") {
                                 Task { await manager.runCommand(["backup", "apply"], label: "Backup & Apply", clearsPending: true) }
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(manager.isRunning)
-                        } else if hint.suggestedFix == .upgradeCLI {
+                        case .upgradeCLI:
                             Button("Upgrade CLI") {
                                 Task { await manager.runCommand(["upgrade"], label: "Upgrade CLI", reloadAfter: true) }
                             }
                             .buttonStyle(.borderedProminent)
                             .disabled(manager.isRunning)
+                        case nil:
+                            EmptyView()
                         }
                     }
                     .padding(.horizontal, 16)
@@ -1028,12 +1068,22 @@ struct QuickActionsView: View {
 
                     ActionCard(
                         title: "Backup & Apply",
-                        subtitle: "Run this after a Spotify update resets Spicetify.",
+                        subtitle: "Initial backup and apply, or after a Spotify update.",
                         icon: "arrow.triangle.2.circlepath.circle.fill",
                         tint: .blue,
                         disabled: manager.isRunning || !manager.cliFound
                     ) {
                         Task { await manager.runCommand(["backup", "apply"], label: "Backup & Apply", clearsPending: true) }
+                    }
+
+                    ActionCard(
+                        title: "Restore, Backup & Apply",
+                        subtitle: "Clean reset when a backup already exists.",
+                        icon: "arrow.clockwise.circle.fill",
+                        tint: .indigo,
+                        disabled: manager.isRunning || !manager.cliFound
+                    ) {
+                        Task { await manager.runCommand(["restore", "backup", "apply"], label: "Restore, Backup & Apply", clearsPending: true) }
                     }
 
                     ActionCard(

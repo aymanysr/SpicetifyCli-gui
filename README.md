@@ -28,6 +28,12 @@ cp -R build/SpicetifyGUI.app /Applications/
 
 If macOS prompts on first launch (because the app is ad-hoc signed locally), right-click **SpicetifyGUI.app** in `/Applications` and click **Open**.
 
+### First-Time macOS Permission (App Management)
+Because Spicetify patches `/Applications/Spotify.app`, macOS requires **App Management** permission for **Spicetify GUI**:
+1. Open **System Settings → Privacy & Security → App Management** (or click the in-app **Open App Management Settings** button if a permission banner appears).
+2. Enable **Spicetify GUI** (click **+** to add it from `/Applications` if not listed).
+3. Quit and reopen **Spicetify GUI**.
+
 ### Refreshing the Finder icon after upgrading from an earlier build
 macOS Finder caches app icons aggressively when replacing an existing `.app`. If Finder still shows an older icon after copying into `/Applications`, run:
 ```bash
